@@ -86,7 +86,7 @@ The system uses the following main tables:
 
 ---
 
-## 📚 Conclusion
+##  Conclusion
 
 IntelliShelf provides a simple and efficient way to manage inventory and business operations, making it useful for small and medium-sized businesses.
 
