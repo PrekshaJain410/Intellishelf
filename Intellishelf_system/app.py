@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:prank%4041005%25@localhost/inventory_system'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:YOURPASSWORD@localhost/inventory_system'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
