@@ -1,0 +1,472 @@
+{% extends "base.html" %}
+
+{% block page_title %}Purchases Management{% endblock %}
+{% block page_subtitle %}Create purchase orders and track deliveries{% endblock %}
+
+{% block content %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon primary"><i class="fas fa-shopping-cart"></i></div>
+            <div class="card-number">{{ purchases|length }}</div>
+            <div class="card-label">Total Orders</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon warning"><i class="fas fa-clock"></i></div>
+            <div class="card-number">{{ purchases|selectattr('status', 'equalto', 'Pending')|list|length }}</div>
+            <div class="card-label">Pending</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon success"><i class="fas fa-check-circle"></i></div>
+            <div class="card-number">{{ purchases|selectattr('status', 'equalto', 'Received')|list|length }}</div>
+            <div class="card-label">Received</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon danger"><i class="fas fa-times-circle"></i></div>
+            <div class="card-number">{{ purchases|selectattr('status', 'equalto', 'Cancelled')|list|length }}</div>
+            <div class="card-label">Cancelled</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="table-container">
+            <h6 class="fw-bold mb-3">📦 New Purchase Order</h6>
+            
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Supplier</label>
+                <select class="form-select" id="purchaseSupplier" required>
+                    <option value="">Select supplier</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.id }}">{{ s.company }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <hr style="border-color: rgba(163,181,151,0.4);">
+            
+            <div class="mb-2">
+                <small class="text-muted fw-semibold">ADD PRODUCT</small>
+            </div>
+            
+            <div class="mb-2">
+                <select class="form-select" id="lineProduct">
+                    <option value="">Choose product...</option>
+                    {% for p in products %}
+                    <option value="{{ p.id }}" data-price="{{ p.purchase_price }}">
+                        {{ p.name }} (Stock: {{ p.quantity }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="row g-2 mb-2">
+                <div class="col-6">
+                    <input type="number" class="form-control" id="lineQty" 
+                        value="1" min="1" placeholder="Qty">
+                </div>
+                <div class="col-6">
+                    <input type="number" class="form-control" id="linePrice" 
+                        step="0.01" placeholder="Unit price">
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-outline-primary w-100 mb-3" onclick="addLineItem()">
+                <i class="fas fa-plus me-2"></i>Add to Order
+            </button>
+            
+            <div id="purchaseCart" style="max-height:240px;overflow-y:auto;margin-bottom:12px;"></div>
+            
+            <div class="bg-light p-3 rounded mb-3">
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>Order Total:</span>
+                    <span id="purchaseTotal">₹0.00</span>
+                </div>
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>Items:</span>
+                    <span id="purchaseItemCount">0</span>
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-primary w-100" onclick="submitPurchase()">
+                <i class="fas fa-check me-2"></i>Create Purchase Order
+            </button>
+            <button type="button" class="btn btn-outline-secondary w-100 mt-2" onclick="clearPurchaseCart()">
+                <i class="fas fa-trash me-2"></i>Clear
+            </button>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>📋 Purchase Orders</h6>
+                <a href="{{ url_for('export_purchases_csv') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-file-csv me-1"></i>Export CSV
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Supplier</th>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in purchases %}
+                        <tr>
+                            <td>{{ p.id }}</td>
+                            <td>{{ p.supplier.company if p.supplier else '-' }}</td>
+                            <td>
+                                {% if p.items %}
+                                    <strong>{{ p.items[0].product.name }}</strong>
+                                    {% if p.items|length > 1 %}
+                                        <br><small class="text-muted">+{{ p.items|length - 1 }} more item{{ 's' if p.items|length > 2 else '' }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.items|sum(attribute='quantity') if p.items else 0 }}</td>
+                            <td>₹{{ "%.2f"|format(p.total_amount) }}</td>
+                            <td>
+                                <span class="badge-status 
+                                    {% if p.status == 'Received' %}received
+                                    {% elif p.status == 'Pending' %}pending
+                                    {% else %}cancelled{% endif %}">
+                                    {{ p.status }}
+                                </span>
+                            </td>
+                            <td>{{ p.purchase_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="viewPurchase({{ p.id }})" 
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if p.status == 'Pending' %}
+                                    <button class="btn btn-sm btn-success" onclick="receivePurchase({{ p.id }})" title="Receive">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="text-center text-muted">No purchase orders</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if pagination.pages > 1 %}
+            <nav class="d-flex justify-content-between align-items-center mt-3 pt-3" 
+                 style="border-top:1px solid rgba(163,181,151,0.3);">
+                <small class="text-muted">
+                    Showing {{ pagination.first }}–{{ pagination.last }} of {{ pagination.total }} orders
+                </small>
+                
+                <ul class="pagination mb-0" style="gap:4px;">
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('purchases', page=pagination.prev_num) if pagination.has_prev else '#' }}"
+                           style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" 
+                                   href="{{ url_for('purchases', page=p) }}"
+                                   style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);
+                                          {% if p == pagination.page %}background:var(--forest);color:var(--cream);{% else %}color:var(--forest);{% endif %}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link" style="border:none;background:transparent;">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('purchases', page=pagination.next_num) if pagination.has_next else '#' }}"
+                           style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="viewPurchaseModal">
+    <div class="modal-content" style="max-width:640px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold" id="viewPurchaseTitle">Purchase Order Details</h5>
+            <button class="modal-close" onclick="closeModal('viewPurchaseModal')">×</button>
+        </div>
+        <div id="viewPurchaseBody"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let purchaseCart = [];
+
+    const productSelect = document.getElementById('lineProduct');
+    const qtyInput = document.getElementById('lineQty');
+    const priceInput = document.getElementById('linePrice');
+
+    productSelect.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        if (opt.value) {
+            priceInput.value = opt.dataset.price || 0;
+            qtyInput.focus();
+        } else {
+            priceInput.value = '';
+        }
+    });
+
+    function addLineItem() {
+        const productId = productSelect.value;
+        const qty = parseInt(qtyInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+
+        if (!productId) { showToast('Please select a product', 'warning'); return; }
+        if (qty <= 0) { showToast('Quantity must be greater than 0', 'warning'); return; }
+        if (price <= 0) { showToast('Price must be greater than 0', 'warning'); return; }
+
+        const opt = productSelect.options[productSelect.selectedIndex];
+        const productName = opt.text.split(' (')[0];
+
+        const existing = purchaseCart.find(c => c.product_id == productId);
+        if (existing) {
+            existing.quantity += qty;
+            existing.total = existing.quantity * existing.purchase_price;
+            showToast(`Updated ${productName} quantity to ${existing.quantity}`, 'success');
+        } else {
+            purchaseCart.push({
+                product_id: parseInt(productId),
+                product_name: productName,
+                quantity: qty,
+                purchase_price: price,
+                total: qty * price
+            });
+            showToast(`Added ${productName}`, 'success');
+        }
+
+        productSelect.value = '';
+        qtyInput.value = 1;
+        priceInput.value = '';
+        productSelect.focus();
+
+        renderPurchaseCart();
+    }
+
+    function removeLineItem(productId) {
+        purchaseCart = purchaseCart.filter(c => c.product_id !== productId);
+        renderPurchaseCart();
+    }
+
+    function renderPurchaseCart() {
+        const container = document.getElementById('purchaseCart');
+        const totalEl = document.getElementById('purchaseTotal');
+        const countEl = document.getElementById('purchaseItemCount');
+
+        if (purchaseCart.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-3 small" 
+                     style="border:1.5px dashed rgba(163,181,151,0.5);border-radius:8px;">
+                    No items added yet
+                </div>`;
+            totalEl.textContent = '₹0.00';
+            countEl.textContent = '0';
+            return;
+        }
+
+        let total = 0;
+        let count = 0;
+
+        container.innerHTML = purchaseCart.map(item => {
+            total += item.total;
+            count += item.quantity;
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-1 p-2"
+                     style="background:rgba(163,181,151,0.12);border-radius:8px;">
+                    <div style="flex:1;min-width:0;">
+                        <div class="fw-semibold small text-truncate">${item.product_name}</div>
+                        <div class="text-muted" style="font-size:0.75rem;">
+                            ${item.quantity} × ₹${item.purchase_price.toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="ms-2 text-nowrap">
+                        <span class="fw-bold me-2">₹${item.total.toFixed(2)}</span>
+                        <button class="btn btn-sm btn-danger" onclick="removeLineItem(${item.product_id})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        totalEl.textContent = '₹' + total.toFixed(2);
+        countEl.textContent = count;
+    }
+
+    function submitPurchase() {
+        const supplierId = document.getElementById('purchaseSupplier').value;
+
+        if (!supplierId) { showToast('Please select a supplier', 'warning'); return; }
+        if (purchaseCart.length === 0) { showToast('Add at least one product to the order', 'warning'); return; }
+
+        const total = purchaseCart.reduce((sum, c) => sum + c.total, 0);
+
+        if (!confirm(`Create purchase order for ₹${total.toFixed(2)} (${purchaseCart.length} item${purchaseCart.length > 1 ? 's' : ''})?`)) {
+            return;
+        }
+
+        const payload = {
+            supplier_id: parseInt(supplierId),
+            items: purchaseCart.map(c => ({
+                product_id: c.product_id,
+                quantity: c.quantity,
+                purchase_price: c.purchase_price
+            }))
+        };
+
+        fetch('/api/purchases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                showToast(`Purchase order #${result.id} created`, 'success');
+                purchaseCart = [];
+                renderPurchaseCart();
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast(result.message || 'Failed to create purchase order', 'error');
+            }
+        })
+        .catch(error => showToast('Error: ' + error.message, 'error'));
+    }
+
+    function clearPurchaseCart() {
+        if (purchaseCart.length === 0) {
+            showToast('Cart is already empty', 'info');
+            return;
+        }
+        if (confirm('Clear all items from this order?')) {
+            purchaseCart = [];
+            renderPurchaseCart();
+        }
+    }
+
+    function receivePurchase(id) {
+        if (!confirm('Mark this purchase as received?\n\nStock will be incremented for all items.')) return;
+
+        fetch(`/api/purchases/${id}/receive`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Purchase received! Stock updated.', 'success');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showToast(data.message || 'Failed to receive', 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error.message, 'error'));
+    }
+
+    function viewPurchase(purchaseId) {
+        fetch(`/api/purchases/${purchaseId}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Purchase not found');
+                return response.json();
+            })
+            .then(purchase => {
+                document.getElementById('viewPurchaseTitle').textContent = `Purchase Order #${purchase.id}`;
+                const body = document.getElementById('viewPurchaseBody');
+                
+                const statusClass = 
+                    purchase.status === 'Received' ? 'received' :
+                    purchase.status === 'Pending'  ? 'pending'  : 'cancelled';
+                
+                const itemsHtml = purchase.items.map(item => `
+                    <tr>
+                        <td><strong>${item.product_name}</strong></td>
+                        <td>${item.quantity}</td>
+                        <td>₹${item.purchase_price.toFixed(2)}</td>
+                        <td>₹${item.total.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+                
+                body.innerHTML = `
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Supplier</label>
+                            <div>${purchase.supplier_name || '—'}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Date</label>
+                            <div>${purchase.purchase_date}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Status</label>
+                            <div><span class="badge-status ${statusClass}">${purchase.status}</span></div>
+                        </div>
+                    </div>
+                    
+                    <table class="table mt-3">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHtml || '<tr><td colspan="4" class="text-center text-muted">No items</td></tr>'}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background:rgba(163,181,151,0.15);">
+                                <td colspan="3" class="text-end fw-bold">Order Total:</td>
+                                <td class="fw-bold">₹${purchase.total_amount.toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+                
+                document.getElementById('viewPurchaseModal').classList.add('active');
+            })
+            .catch(error => showToast('Error loading purchase: ' + error.message, 'error'));
+    }
+</script>
+{% endblock %}

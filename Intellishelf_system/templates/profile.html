@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block page_title %}My Profile{% endblock %}
+{% block page_subtitle %}Manage your account details and security{% endblock %}
+
+{% block content %}
+
+<div class="profile-layout">
+
+    <!-- ==================== LEFT: Profile Card ==================== -->
+    <div class="profile-card">
+        <div class="avatar-wrapper">
+            <div class="avatar">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+                    <rect width="200" height="200" fill="#E7F0E4"/>
+                    <circle cx="100" cy="78" r="32" fill="#B8C9A8"/>
+                    <path d="M 30 200 Q 30 130 100 130 Q 170 130 170 200 Z" fill="#B8C9A8"/>
+                </svg>
+            </div>
+            <div class="avatar-status" title="Active"></div>
+        </div>
+
+        <p class="profile-name" id="profileName">{{ current_user.full_name }}</p>
+        <p class="profile-role" id="profileRole">{{ current_user.get_role_display() }}</p>
+        <p class="profile-email" id="profileEmail">{{ current_user.email }}</p>
+
+        <div class="profile-stats">
+            <div class="profile-stat">
+                <p class="profile-stat-value" id="statProducts">—</p>
+                <p class="profile-stat-label">Products</p>
+            </div>
+            <div class="profile-stat">
+                <p class="profile-stat-value" id="statSales">—</p>
+                <p class="profile-stat-label">Sales</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== RIGHT: Forms ==================== -->
+    <div class="profile-forms">
+
+        <!-- Personal Info -->
+        <div class="card-section">
+            <div class="card-section-header">
+                <h3>Personal Information</h3>
+                <span class="badge-status in-stock">Active</span>
+            </div>
+
+            <form id="profileForm" autocomplete="off">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pfFirst">First Name</label>
+                        <input type="text" id="pfFirst" required maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="pfLast">Last Name</label>
+                        <input type="text" id="pfLast" required maxlength="50">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pfEmail">Email Address</label>
+                        <input type="email" id="pfEmail" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="pfCompany">Company Name</label>
+                        <input type="text" id="pfCompany" required maxlength="150">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Role</label>
+                        <input type="text" id="pfRole" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>Member Since</label>
+                        <input type="text" id="pfSince" disabled>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn-profile btn-profile-ghost" id="resetBtn">Reset</button>
+                    <button type="submit" class="btn-profile btn-profile-primary" id="saveProfileBtn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Security -->
+        <div class="card-section">
+            <div class="card-section-header">
+                <h3>Security</h3>
+                <p>Update your password</p>
+            </div>
+
+            <form id="passwordForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="pfCurrent">Current Password</label>
+                    <input type="password" id="pfCurrent" placeholder="Enter current password" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pfNew">New Password</label>
+                        <input type="password" id="pfNew" placeholder="Min. 6 characters" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="pfConfirm">Confirm New Password</label>
+                        <input type="password" id="pfConfirm" placeholder="Re-enter new password" required minlength="6">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn-profile btn-profile-primary" id="savePwdBtn">Update Password</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ============================================================
+   PROFILE PAGE — client logic
+   ============================================================ */
+
+const $ = (sel) => document.querySelector(sel);
+
+function loadProfile() {
+    fetch('/api/profile/stats')
+        .then(r => r.json())
+        .then(stats => {
+            $('#statProducts').textContent = stats.products;
+            $('#statSales').textContent = stats.sales;
+            $('#pfRole').value = stats.role_display;
+            $('#pfSince').value = stats.created_at || '—';
+            $('#profileRole').textContent = stats.role_display;
+        })
+        .catch(() => {
+            $('#statProducts').textContent = '0';
+            $('#statSales').textContent = '0';
+        });
+
+    const fullName = "{{ current_user.full_name }}";
+    const parts = fullName.trim().split(/\s+/);
+    const first = parts.shift() || '';
+    const last = parts.join(' ') || '';
+
+    $('#pfFirst').value = first;
+    $('#pfLast').value = last;
+    $('#pfEmail').value = "{{ current_user.email }}";
+    $('#pfCompany').value = "{{ current_user.company_name }}";
+}
+
+/* Save profile */
+$('#profileForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const first = $('#pfFirst').value.trim();
+    const last = $('#pfLast').value.trim();
+    const email = $('#pfEmail').value.trim();
+    const company = $('#pfCompany').value.trim();
+
+    if (!first || !last || !email || !company) {
+        showToast('All fields are required.', 'error');
+        return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        showToast('Please enter a valid email address.', 'error');
+        return;
+    }
+
+    const btn = $('#saveProfileBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            first_name: first,
+            last_name: last,
+            email: email,
+            company_name: company
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            $('#profileName').textContent = data.user.full_name;
+            $('#profileEmail').textContent = data.user.email;
+            setTimeout(() => location.reload(), 900);
+        } else {
+            showToast(data.message || 'Failed to update profile.', 'error');
+            btn.disabled = false;
+            btn.textContent = original;
+        }
+    })
+    .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+});
+
+/* Reset */
+$('#resetBtn').addEventListener('click', function() {
+    loadProfile();
+    showToast('Form reset', 'info');
+});
+
+/* Update password */
+$('#passwordForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const current = $('#pfCurrent').value;
+    const newPwd = $('#pfNew').value;
+    const confirm = $('#pfConfirm').value;
+
+    if (!current || !newPwd || !confirm) {
+        showToast('Please fill in all password fields.', 'error');
+        return;
+    }
+    if (newPwd.length < 6) {
+        showToast('New password must be at least 6 characters.', 'error');
+        return;
+    }
+    if (newPwd !== confirm) {
+        showToast('New passwords do not match.', 'error');
+        return;
+    }
+
+    const btn = $('#savePwdBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    fetch('/api/profile/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            current_password: current,
+            new_password: newPwd,
+            confirm_password: confirm
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            $('#passwordForm').reset();
+        } else {
+            showToast(data.message || 'Failed to update password.', 'error');
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+    })
+    .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+});
+
+document.addEventListener('DOMContentLoaded', loadProfile);
+</script>
+{% endblock %}

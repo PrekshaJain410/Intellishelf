@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block page_subtitle %}System overview and user management{% endblock %}
+
+{% block content %}
+
+<!-- Welcome Banner -->
+<div class="table-container mb-4" style="background:linear-gradient(135deg, rgba(59,73,56,0.95), rgba(97,108,94,0.95));color:var(--cream);border:none;">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div style="font-size:42px;">👑</div>
+        <div style="flex:1;min-width:200px;">
+            <h4 class="fw-bold mb-1" style="color:var(--cream);">Welcome, {{ current_user.full_name }}</h4>
+            <p class="mb-0" style="color:rgba(244,246,241,0.85);">
+                You are logged in as <strong>System Administrator</strong>. 
+                Manage user accounts from the <a href="{{ url_for('user_management') }}" style="color:var(--sage);text-decoration:underline;">User Management</a> page.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- User Statistics -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('user_management') }}'">
+            <div class="card-icon primary"><i class="fas fa-users"></i></div>
+            <div class="card-number">{{ total_users }}</div>
+            <div class="card-label">Total Users</div>
+            <div class="card-change up"><i class="fas fa-users me-1"></i>Registered accounts</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('user_management') }}'">
+            <div class="card-icon success"><i class="fas fa-user-check"></i></div>
+            <div class="card-number">{{ active_users }}</div>
+            <div class="card-label">Active Users</div>
+            <div class="card-change up"><i class="fas fa-check me-1"></i>Can log in</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('user_management') }}'">
+            <div class="card-icon danger"><i class="fas fa-user-times"></i></div>
+            <div class="card-number">{{ inactive_users }}</div>
+            <div class="card-label">Inactive Users</div>
+            <div class="card-change down"><i class="fas fa-ban me-1"></i>Access blocked</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon warning"><i class="fas fa-user-shield"></i></div>
+            <div class="card-number">{{ total_admins }}</div>
+            <div class="card-label">Administrators</div>
+            <div class="card-change up"><i class="fas fa-crown me-1"></i>System level</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Registrations -->
+<div class="row g-4">
+    <div class="col-12">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>🆕 Recent Registrations</h6>
+                <a href="{{ url_for('user_management') }}" class="btn btn-sm btn-outline-primary">
+                    Manage All Users
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Registered</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_users %}
+                            {% for u in recent_users %}
+                            <tr>
+                                <td>#{{ "%03d"|format(u.id) }}</td>
+                                <td>
+                                    <strong>{{ u.full_name }}</strong>
+                                    {% if u.id == current_user.id %}
+                                    <span class="badge bg-primary ms-1" style="font-size:9px;">YOU</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ u.email }}</td>
+                                <td>
+                                    <span class="badge-status {% if u.role == 'admin' %}in-stock{% else %}received{% endif %}">
+                                        {{ u.get_role_display() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if u.is_active %}
+                                    <span class="badge-status in-stock">Active</span>
+                                    {% else %}
+                                    <span class="badge-status out-of-stock">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="6" class="text-center text-muted">No users found</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

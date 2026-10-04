@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block auth_content %}
+<div class="auth-page active" id="loginPage">
+    <div class="auth-container auth-container-wide auth-container-login">
+        <div class="brand">
+            <h1><span>Intelli</span>Shelf</h1>
+            <p>Smart Procurement & Inventory Management</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="error-msg" style="display:block;">
+                        <i class="fas fa-exclamation-circle me-2"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}">
+
+            <!-- Email (full width) -->
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" name="email" placeholder="Enter your email" required>
+            </div>
+
+            <!-- Password (full width) -->
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="Enter your password" required>
+            </div>
+
+            <div class="form-options">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;">
+                    <!-- <input type="checkbox" checked> Remember me -->
+                </label>
+                <a onclick="showToast('Password reset link sent to your email!', 'info')">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="btn-auth">
+                <i class="fas fa-sign-in-alt me-2"></i> Sign In
+            </button>
+        </form>
+
+        <div class="auth-link">
+            Don't have an account? <a href="{{ url_for('register') }}">Create one</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

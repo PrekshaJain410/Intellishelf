@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block page_title %}User Management{% endblock %}
+{% block page_subtitle %}Manage system users and their access status{% endblock %}
+
+{% block content %}
+
+{% if current_user.role == 'admin' %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon primary"><i class="fas fa-users"></i></div>
+            <div class="card-number">{{ users|length }}</div>
+            <div class="card-label">Total Users</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon success"><i class="fas fa-user-check"></i></div>
+            <div class="card-number">{{ users|selectattr('is_active', 'equalto', True)|list|length }}</div>
+            <div class="card-label">Active Users</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon danger"><i class="fas fa-user-times"></i></div>
+            <div class="card-number">{{ users|selectattr('is_active', 'equalto', False)|list|length }}</div>
+            <div class="card-label">Inactive Users</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon warning"><i class="fas fa-user-shield"></i></div>
+            <div class="card-number">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+            <div class="card-label">Administrators</div>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <div class="table-header">
+        <h6>👥 All Users</h6>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" onclick="refreshUsers()">
+                <i class="fas fa-sync me-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                {% for user in users %}
+                <tr id="user-row-{{ user.id }}">
+                    <td>#{{ "%03d"|format(user.id) }}</td>
+                    <td>
+                        <strong>{{ user.full_name }}</strong>
+                        {% if user.id == current_user.id %}
+                        <span class="badge bg-primary ms-1" style="font-size:9px;">YOU</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <span class="badge-status 
+                            {% if user.role == 'admin' %}in-stock
+                            {% else %}received{% endif %}">
+                            {{ user.get_role_display() }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if user.is_active %}
+                        <span class="badge-status in-stock">Active</span>
+                        {% else %}
+                        <span class="badge-status out-of-stock">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                    <td>
+                        <div class="d-flex gap-1 flex-wrap">
+                            {% if user.id != current_user.id %}
+                            <button class="btn btn-sm {% if user.is_active %}btn-warning{% else %}btn-success{% endif %}" 
+                                    onclick="toggleUserStatus({{ user.id }})" 
+                                    title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                <i class="fas {% if user.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})" title="Delete User">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">(Current)</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-users fa-2x mb-2 d-block"></i>
+                        No users found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="table-container mt-4" style="background:rgba(140,180,200,0.15);border-color:rgba(140,180,200,0.4);">
+    <div class="d-flex align-items-start gap-3">
+        <div style="font-size:24px;">ℹ️</div>
+        <div>
+            <h6 class="fw-bold mb-1" style="color:var(--forest);">About Role Management</h6>
+            <p class="mb-0 small" style="color:var(--text-secondary);">
+                User roles are assigned automatically when users register. 
+                New users become <strong>Users</strong> with their own private inventory. 
+                As administrator, you can activate, deactivate, or delete users, but roles cannot be changed manually.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+{% else %}
+<div class="table-container text-center py-5">
+    <i class="fas fa-lock fa-3x text-muted mb-3 d-block"></i>
+    <h5>Access Denied</h5>
+    <p class="text-muted">You don't have permission to view this page.</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-2">
+        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.role == 'admin' %}
+<script>
+    function toggleUserStatus(userId) {
+        if (!confirm('Are you sure you want to change this user\'s status?')) {
+            return;
+        }
+        
+        fetch(`/api/user-management/${userId}/toggle-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function deleteUser(userId) {
+        if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+        }
+        
+        fetch(`/api/user-management/${userId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function refreshUsers() {
+        showToast('Refreshing user list...', 'info');
+        location.reload();
+    }
+
+    function showToast(message, type = 'success') {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            container.id = 'toastContainer';
+            document.body.appendChild(container);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-msg ${type}`;
+        const icon = type === 'success' ? 'check-circle' : 
+                     type === 'error' ? 'exclamation-circle' : 
+                     type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+        toast.innerHTML = `<i class="fas fa-${icon} me-2"></i> ${message}`;
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}
+    {% if total_products == 0 %}
+        Get started with your inventory
+    {% else %}
+        Overview of {{ current_user.company_name }}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ============================================================ #}
+{# ONBOARDING SCREEN — Shown only when user has no products yet  #}
+{# ============================================================ #}
+{% if total_products == 0 %}
+
+<div class="onboarding-wrapper">
+    <div class="onboarding-card">
+        
+        <!-- Greeting -->
+        <h2 class="onboarding-title">
+            Welcome, {{ current_user.full_name.split()[0] }}
+        </h2>
+        <p class="onboarding-subtitle">
+            Set up <strong>{{ current_user.company_name }}</strong>'s inventory workspace.
+            Follow these steps to get started.
+        </p>
+
+        <!-- Suggestion banner -->
+        {% if total_suppliers == 0 %}
+        <div class="onboarding-suggestion">
+            <i class="fas fa-lightbulb"></i>
+            <span><strong>Start with a supplier</strong> — products need to be linked to a supplier who provides them.</span>
+        </div>
+        {% endif %}
+
+        <!-- Steps -->
+        <div class="onboarding-steps">
+            
+            <!-- STEP 1: Supplier -->
+            <div class="onboarding-step {% if total_suppliers > 0 %}completed{% endif %}" 
+                 onclick="window.location.href='{{ url_for('suppliers') }}'">
+                <div class="step-badge {% if total_suppliers > 0 %}done{% endif %}">
+                    {% if total_suppliers > 0 %}
+                        <i class="fas fa-check"></i>
+                    {% else %}
+                        1
+                    {% endif %}
+                </div>
+                <div class="step-content">
+                    <div class="step-title">
+                        Add a Supplier
+                        {% if total_suppliers > 0 %}
+                        <span class="step-done-label">Done</span>
+                        {% endif %}
+                    </div>
+                    <div class="step-desc">
+                        {% if total_suppliers > 0 %}
+                            You have {{ total_suppliers }} supplier{{ 's' if total_suppliers != 1 }} added.
+                        {% else %}
+                            Add companies or vendors you buy stock from.
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="step-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+
+            <!-- STEP 2: Products -->
+            <div class="onboarding-step" onclick="window.location.href='{{ url_for('inventory') }}'">
+                <div class="step-badge">2</div>
+                <div class="step-content">
+                    <div class="step-title">Add Your Products</div>
+                    <div class="step-desc">
+                        Add the items you sell with prices and stock levels.
+                    </div>
+                </div>
+                <div class="step-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+
+            <!-- STEP 3: Sales -->
+            <div class="onboarding-step" onclick="window.location.href='{{ url_for('sales') }}'">
+                <div class="step-badge">3</div>
+                <div class="step-content">
+                    <div class="step-title">Record Your Sales</div>
+                    <div class="step-desc">
+                        Track your revenue and monitor your stock.
+                    </div>
+                </div>
+                <div class="step-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Primary CTA -->
+        <div class="onboarding-cta">
+            {% if total_suppliers == 0 %}
+                <a href="{{ url_for('suppliers') }}" class="btn-onboarding-primary">
+                    <i class="fas fa-plus me-2"></i>Add Your First Supplier
+                </a>
+            {% else %}
+                <a href="{{ url_for('inventory') }}" class="btn-onboarding-primary">
+                    <i class="fas fa-plus me-2"></i>Add Your First Product
+                </a>
+                <a href="{{ url_for('suppliers') }}" class="btn-onboarding-secondary">
+                    <i class="fas fa-truck me-2"></i>Manage Suppliers
+                </a>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<style>
+.onboarding-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    padding: 2rem 1rem;
+}
+
+.onboarding-card {
+    background: rgba(244, 246, 241, 0.96);
+    backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(163, 181, 151, 0.5);
+    border-radius: 24px;
+    padding: 3rem 2.75rem;
+    max-width: 620px;
+    width: 100%;
+    box-shadow: 0 24px 50px rgba(59, 73, 56, 0.12);
+    animation: fadeSlideUp 0.5s ease-out;
+}
+
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.onboarding-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--forest);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    text-align: center;
+}
+
+.onboarding-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.98rem;
+    max-width: 440px;
+    margin: 0 auto 1.75rem;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.onboarding-suggestion {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    background: rgba(217, 178, 120, 0.15);
+    border: 1px solid rgba(217, 178, 120, 0.4);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    color: var(--forest);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.onboarding-suggestion i {
+    color: #b8860b;
+    font-size: 1rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.onboarding-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.onboarding-step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.15rem 1.25rem;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1.5px solid rgba(163, 181, 151, 0.4);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.onboarding-step:hover {
+    background: rgba(231, 240, 228, 0.9);
+    border-color: var(--forest);
+    transform: translateX(4px);
+    box-shadow: 0 8px 20px rgba(59, 73, 56, 0.08);
+}
+
+.onboarding-step.completed {
+    background: rgba(163, 181, 151, 0.15);
+    border-color: rgba(163, 181, 151, 0.6);
+}
+
+.step-badge {
+    width: 32px;
+    height: 32px;
+    background: var(--forest);
+    color: var(--cream);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.step-badge.done {
+    background: #4a7c59;
+    font-size: 0.75rem;
+}
+
+.step-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.step-title {
+    font-weight: 700;
+    color: var(--forest);
+    font-size: 0.98rem;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.step-done-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #4a7c59;
+    background: rgba(163, 181, 151, 0.35);
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.step-desc {
+    color: var(--text-secondary);
+    font-size: 0.83rem;
+    line-height: 1.45;
+}
+
+.step-arrow {
+    color: var(--sage);
+    font-size: 0.85rem;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+
+.onboarding-step:hover .step-arrow {
+    color: var(--forest);
+    transform: translateX(3px);
+}
+
+.onboarding-cta {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-onboarding-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 1.85rem;
+    background: var(--forest);
+    color: var(--cream);
+    border: 1.5px solid var(--forest);
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    box-shadow: 0 8px 20px rgba(59, 73, 56, 0.25);
+}
+
+.btn-onboarding-primary:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: var(--cream);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(59, 73, 56, 0.35);
+}
+
+.btn-onboarding-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 1.75rem;
+    background: transparent;
+    color: var(--forest);
+    border: 1.5px solid rgba(163, 181, 151, 0.7);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.btn-onboarding-secondary:hover {
+    background: rgba(163, 181, 151, 0.2);
+    border-color: var(--forest);
+    color: var(--forest);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 576px) {
+    .onboarding-card {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+    }
+    .onboarding-title {
+        font-size: 1.4rem;
+    }
+    .step-badge {
+        width: 28px;
+        height: 28px;
+        font-size: 0.78rem;
+    }
+    .btn-onboarding-primary,
+    .btn-onboarding-secondary {
+        width: 100%;
+    }
+    .onboarding-cta {
+        flex-direction: column;
+    }
+}
+</style>
+
+{% else %}
+
+{# ============================================================ #}
+{# FULL DASHBOARD — Stats + Recent Sales + Low Stock             #}
+{# ============================================================ #}
+
+<!-- KPI Row 1 -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('inventory') }}'">
+            <div class="card-icon primary"><i class="fas fa-boxes"></i></div>
+            <div class="card-number">{{ total_products }}</div>
+            <div class="card-label">My Products</div>
+            <div class="card-change up"><i class="fas fa-arrow-up me-1"></i>Active in inventory</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('alerts') }}'">
+            <div class="card-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="card-number">{{ low_stock_products }}</div>
+            <div class="card-label">Low Stock Items</div>
+            <div class="card-change down"><i class="fas fa-arrow-down me-1"></i>Needs attention</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('reports') }}'">
+            <div class="card-icon success"><i class="fas fa-dollar-sign"></i></div>
+            <div class="card-number">₹{{ "{:,.0f}".format(revenue) }}</div>
+            <div class="card-label">My Revenue</div>
+            <div class="card-change up"><i class="fas fa-arrow-up me-1"></i>Total earnings</div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('purchases') }}'">
+            <div class="card-icon info"><i class="fas fa-shopping-cart"></i></div>
+            <div class="card-number">{{ total_purchases }}</div>
+            <div class="card-label">My Orders</div>
+            <div class="card-change up"><i class="fas fa-arrow-up me-1"></i>Purchase history</div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Row 2 -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('suppliers') }}'">
+            <div class="card-icon purple"><i class="fas fa-truck"></i></div>
+            <div class="card-number">{{ total_suppliers }}</div>
+            <div class="card-label">My Suppliers</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('purchases') }}'">
+            <div class="card-icon warning"><i class="fas fa-clock"></i></div>
+            <div class="card-number">{{ pending_purchases }}</div>
+            <div class="card-label">Pending Orders</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('sales') }}'">
+            <div class="card-icon primary"><i class="fas fa-chart-line"></i></div>
+            <div class="card-number">{{ total_sales }}</div>
+            <div class="card-label">Total Sales</div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-lg-4 col-md-6">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('forecasting') }}'">
+            <div class="card-icon info"><i class="fas fa-robot"></i></div>
+            <div class="card-number">{{ predicted_demand }}</div>
+            <div class="card-label">Predicted Demand</div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-lg-6 col-md-12">
+        <div class="dashboard-card" onclick="window.location.href='{{ url_for('inventory') }}'">
+            <div class="card-icon success"><i class="fas fa-cubes"></i></div>
+            <div class="card-number">₹{{ "{:,.0f}".format(total_stock_value) }}</div>
+            <div class="card-label">My Stock Value</div>
+            <div class="card-change up"><i class="fas fa-arrow-up me-1"></i>Current inventory</div>
+        </div>
+    </div>
+</div>
+
+{# ============================================================ #}
+{# RECENT SALES + LOW STOCK TABLES                               #}
+{# ============================================================ #}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>Recent Sales</h6>
+                <a href="{{ url_for('sales') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr><th>Order</th><th>Product</th><th>Amount</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        {% if recent_sales %}
+                            {% for sale in recent_sales %}
+                            <tr>
+                                <td>#{{ sale.id }}</td>
+                                <td>{{ sale.items[0].product.name if sale.items else 'N/A' }}</td>
+                                <td>₹{{ "%.2f"|format(sale.total_amount) }}</td>
+                                <td><span class="badge-status completed">Completed</span></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    No sales recorded yet.
+                                    <a href="{{ url_for('sales') }}" class="d-block mt-2 small">Record your first sale</a>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>Low Stock Products</h6>
+                <a href="{{ url_for('alerts') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr><th>Product</th><th>Stock</th><th>Min Stock</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                        {% if low_stock_items %}
+                            {% for product in low_stock_items %}
+                            <tr>
+                                <td><strong>{{ product.name }}</strong></td>
+                                <td><span class="badge-status low-stock">{{ product.quantity }}</span></td>
+                                <td>{{ product.min_stock }}</td>
+                                <td><button class="btn btn-sm btn-danger" onclick="handleReorder({{ product.id }})">Reorder</button></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    All products are well stocked.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if total_products > 0 %}
+<script>
+    function handleReorder(productId) {
+        fetch(`/api/products/${productId}`)
+            .then(response => response.json())
+            .then(product => {
+                const currentStock = product.quantity || 0;
+                const minStock = product.min_stock || 5;
+                const targetStock = minStock * 3;
+                const reorderQty = Math.max(10, targetStock - currentStock);
+                
+                const confirmMsg = 
+                    `Create purchase order?\n\n` +
+                    `Product: ${product.name}\n` +
+                    `Quantity: ${reorderQty} units\n` +
+                    `Unit Price: ₹${product.purchase_price.toFixed(2)}\n` +
+                    `Total: ₹${(product.purchase_price * reorderQty).toFixed(2)}`;
+                
+                if (!confirm(confirmMsg)) return;
+                
+                fetch('/api/purchases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: [{
+                            product_id: productId,
+                            quantity: reorderQty,
+                            purchase_price: product.purchase_price
+                        }],
+                        supplier_id: product.supplier_id
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(`Purchase order #${data.id} created`, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast(data.message || 'Failed to create order', 'error');
+                    }
+                })
+                .catch(error => showToast('Error: ' + error, 'error'));
+            })
+            .catch(error => showToast('Error loading product: ' + error, 'error'));
+    }
+</script>
+{% endif %}
+{% endblock %}

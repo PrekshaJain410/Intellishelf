@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block page_title %}Alerts & Notifications{% endblock %}
+{% block page_subtitle %}Stay updated with low stock and system alerts{% endblock %}
+
+{% block content %}
+
+<div class="table-container mb-4">
+    <div class="table-header">
+        <h6>🔔 All Alerts</h6>
+        <button class="btn btn-sm btn-outline-primary" onclick="markAllAlertsRead()"><i class="fas fa-check me-1"></i>Mark All Read</button>
+    </div>
+    <div id="allAlertsList">
+        {% if notifications %}
+            {% for notification in notifications %}
+            <div class="alert-item {% if notification.type == 'Low Stock' %}danger{% elif notification.type == 'Reorder' %}warning{% else %}success{% endif %}" id="alert-{{ notification.id }}">
+                <div class="alert-icon">
+                    {% if notification.type == 'Low Stock' %}🔴
+                    {% elif notification.type == 'Reorder' %}🟡
+                    {% elif notification.type == 'Forecast' %}🟢
+                    {% else %}🔵{% endif %}
+                </div>
+                <div class="alert-content">
+                    <div class="title">{{ notification.title }}</div>
+                    <div class="desc">{{ notification.message }}</div>
+                </div>
+                <div class="alert-time">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                {% if not notification.is_read %}
+                <button class="btn btn-sm btn-outline-primary" onclick="markAlertRead({{ notification.id }})">Mark Read</button>
+                {% endif %}
+                {% if notification.type == 'Low Stock' %}
+                <button class="btn btn-sm btn-danger" onclick="handleReorderFromAlert('{{ notification.title }}')">Reorder</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>
+                No alerts to display
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- <div class="table-container">
+    <div class="table-header">
+        <h6>⚙️ Notification Settings</h6>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" checked id="emailNotif">
+                <label class="form-check-label" for="emailNotif">📧 Email Notifications</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="smsNotif">
+                <label class="form-check-label" for="smsNotif">📱 SMS Alerts</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" checked id="popupNotif">
+                <label class="form-check-label" for="popupNotif">🔔 Dashboard Popups</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" checked id="stockNotif">
+                <label class="form-check-label" for="stockNotif">⚠️ Low Stock Alerts</label>
+            </div>
+        </div>
+    </div>
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            <label class="form-label">Low Stock Threshold</label>
+            <input type="number" class="form-control" value="10" min="1">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Auto-Reorder Level</label>
+            <input type="number" class="form-control" value="5" min="1">
+        </div>
+    </div>
+    <button class="btn btn-primary mt-3" onclick="showToast('Settings saved successfully!','success')"><i class="fas fa-save me-2"></i>Save Settings</button>
+</div> -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function markAlertRead(id) {
+        fetch(`/api/alerts/mark-read/${id}`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const alertEl = document.getElementById(`alert-${id}`);
+                    if (alertEl) {
+                        alertEl.style.opacity = '0.4';
+                        alertEl.style.transition = 'opacity 0.3s';
+                    }
+                    showToast('Alert marked as read', 'success');
+                    updateAlertBadge();
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function markAllAlertsRead() {
+        fetch('/api/alerts/mark-all-read', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelectorAll('#allAlertsList .alert-item').forEach(el => {
+                        el.style.opacity = '0.4';
+                        el.style.transition = 'opacity 0.3s';
+                    });
+                    showToast('All alerts marked as read!', 'success');
+                    updateAlertBadge();
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function handleReorderFromAlert(title) {
+        const productName = title.split(' - ')[0].trim();
+        
+        if (!productName) {
+            showToast('Could not identify product from alert', 'error');
+            return;
+        }
+
+        fetch('/api/products')
+            .then(response => response.json())
+            .then(products => {
+                const product = products.find(p => p.name === productName) 
+                            || products.find(p => p.name.includes(productName));
+
+                if (!product) {
+                    showToast(`Product "${productName}" not found`, 'error');
+                    return;
+                }
+
+                const currentStock = product.quantity || 0;
+                const minStock = product.min_stock || 5;
+                const targetStock = minStock * 3;
+                const reorderQty = Math.max(10, targetStock - currentStock);
+
+                const confirmMsg = 
+                    `Create purchase order?\n\n` +
+                    `Product: ${product.name}\n` +
+                    `Supplier: ${product.supplier || 'Not assigned'}\n` +
+                    `Quantity: ${reorderQty} units\n` +
+                    `Unit Price: ₹${product.purchase_price.toFixed(2)}\n` +
+                    `Total: ₹${(product.purchase_price * reorderQty).toFixed(2)}`;
+
+                if (!confirm(confirmMsg)) return;
+
+                fetch('/api/purchases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        supplier_id: product.supplier_id,
+                        items: [{
+                            product_id: product.id,
+                            quantity: reorderQty,
+                            purchase_price: product.purchase_price
+                        }]
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(
+                            `Purchase order #${data.id} created for ${reorderQty} × ${product.name}`,
+                            'success'
+                        );
+                        const alertEl = document.querySelector(`[onclick*="${title}"]`)?.closest('.alert-item');
+                        if (alertEl) {
+                            alertEl.style.opacity = '0.5';
+                            alertEl.style.transition = 'opacity 0.3s';
+                        }
+                    } else {
+                        showToast(data.message || 'Failed to create order', 'error');
+                    }
+                })
+                .catch(error => showToast('Error: ' + error, 'error'));
+            })
+            .catch(error => showToast('Error loading products: ' + error, 'error'));
+    }
+
+    function updateAlertBadge() {
+        fetch('/api/alerts/unread-count')
+            .then(response => response.json())
+            .then(data => {
+                const badge = document.getElementById('alertBadge');
+                if (badge) {
+                    badge.textContent = data.count;
+                }
+            })
+            .catch(error => console.log('Error updating badge:', error));
+    }
+</script>
+{% endblock %}

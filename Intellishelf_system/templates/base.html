@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}IntelliShelf - Smart Procurement{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="logo">
+                <h3><span>Intelli</span>Shelf</h3>
+            </div>
+            <div class="subtitle">
+                {% if current_user.role == 'admin' %}
+                    System Administration
+                {% else %}
+                    {{ current_user.company_name }}
+                {% endif %}
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            {% if current_user.role == 'admin' %}
+            <!-- ============================================ -->
+            <!-- ADMIN NAVIGATION - Only admin-relevant pages -->
+            <!-- ============================================ -->
+            <li class="nav-label">Administration</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Admin Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'user_management' %}active{% endif %}" href="{{ url_for('user_management') }}">
+                    <i class="fas fa-users-cog"></i>
+                    <span>User Management</span>
+                    <span class="badge" style="background:var(--sage);font-size:9px;">Admin</span>
+                </a>
+            </li>
+            {% else %}
+            <!-- ============================================ -->
+            <!-- USER NAVIGATION - Full inventory system      -->
+            <!-- ============================================ -->
+            <li class="nav-label">Main</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports & Review</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'inventory' %}active{% endif %}" href="{{ url_for('inventory') }}">
+                    <i class="fas fa-boxes"></i>
+                    <span>Inventory</span>
+                </a>
+            </li>
+            <li class="nav-label">Procurement</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'suppliers' %}active{% endif %}" href="{{ url_for('suppliers') }}">
+                    <i class="fas fa-truck"></i>
+                    <span>Suppliers</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'purchases' %}active{% endif %}" href="{{ url_for('purchases') }}">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Purchases</span>
+                </a>
+            </li>
+            <li class="nav-label">Operations</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'sales' %}active{% endif %}" href="{{ url_for('sales') }}">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Sales</span>
+                </a>
+            </li>
+            <li class="nav-label">Intelligence</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'forecasting' %}active{% endif %}" href="{{ url_for('forecasting') }}">
+                    <i class="fas fa-robot"></i>
+                    <span>AI Forecasting</span>
+                </a>
+            </li>
+            <li class="nav-label">System</li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'alerts' %}active{% endif %}" href="{{ url_for('alerts') }}">
+                    <i class="fas fa-bell"></i>
+                    <span>Alerts</span>
+                    <span class="badge" id="alertBadge">{{ get_unread_count() }}</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('profile') }}" class="user-info-sidebar mb-3" style="padding: 0 0.5rem;text-decoration:none;display:block;">
+                <div class="sidebar-user-card">
+                    <div class="sidebar-user-avatar">
+                        {{ current_user.full_name[0] }}{{ current_user.full_name.split()[-1][0] if current_user.full_name.split()|length > 1 else '' }}
+                    </div>
+                    <div class="sidebar-user-meta">
+                        <div class="sidebar-user-name">{{ current_user.full_name }}</div>
+                        <div class="sidebar-user-role">
+                            <!-- <span class="badge-status {% if current_user.role == 'admin' %}in-stock{% else %}received{% endif %}" style="font-size:8px;padding:1px 8px;">
+                                {{ current_user.get_role_display() }}
+                            </span> -->
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right sidebar-user-arrow"></i>
+                </div>
+            </a>
+            <a href="{{ url_for('logout') }}" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="admin-page active">
+        <div class="main-content">
+
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-toggle" id="sidebarToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div>
+                        <h5 id="pageTitle">{% block page_title %}Dashboard{% endblock %}</h5>
+                        <small id="pageSubtitle">{% block page_subtitle %}Overview{% endblock %}</small>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    {% if current_user.role != 'admin' %}
+                    <!-- <div class="search-box d-none d-md-flex">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search products..." id="globalSearch" />
+                    </div> -->
+
+                    <a href="{{ url_for('alerts') }}" class="notif-btn" title="View notifications">
+                        <i class="fas fa-bell"></i>
+                        {% if get_unread_count() > 0 %}
+                        <span class="dot"></span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+
+                    <!-- <a href="{{ url_for('profile') }}" class="user-profile" style="text-decoration:none;color:inherit;">
+                        <div class="avatar">{{ current_user.full_name[0] }}{{ current_user.full_name.split()[-1][0] if current_user.full_name.split()|length > 1 else '' }}</div>
+                        <div>
+                            <div class="user-name">{{ current_user.full_name }}</div>
+                            <div class="user-role">
+                                {{ current_user.get_role_display() }}
+                                {% if current_user.role == 'admin' %}
+                                <span style="color:var(--sage);font-weight:600;">★</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a> -->
+                </div>
+            </header>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert" style="background:rgba(244,246,241,0.95);border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);border-radius:10px;">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page Content -->
+            {% block content %}{% endblock %}
+
+        </div>
+    </div>
+    {% else %}
+    <!-- Auth Pages -->
+    {% block auth_content %}{% endblock %}
+    {% endif %}
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

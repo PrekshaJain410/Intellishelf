@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block page_title %}Sales Management{% endblock %}
+{% block page_subtitle %}Process sales and track history{% endblock %}
+
+{% block content %}
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="table-container">
+            <h6 class="fw-bold mb-3">🛒 New Sale</h6>
+            
+            <div class="form-group mb-3">
+                <label class="form-label fw-semibold">Search Product</label>
+                <input type="text" class="form-control" id="saleSearch" placeholder="Type product name or barcode..." oninput="filterSaleProducts(this.value)">
+            </div>
+            
+            <div id="saleProductResults" style="max-height:200px;overflow-y:auto;margin-bottom:12px;border:1px solid var(--border-gray);border-radius:8px;"></div>
+            
+            <div class="bg-light p-3 rounded mb-3">
+                <div class="d-flex justify-content-between fw-bold">
+                    <span>Cart Total:</span>
+                    <span id="saleCartTotal">₹0.00</span>
+                </div>
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>Items:</span>
+                    <span id="saleCartCount">0</span>
+                </div>
+            </div>
+            
+            <button class="btn btn-success w-100" onclick="completeSale()">
+                <i class="fas fa-check me-2"></i>Complete Sale
+            </button>
+            
+            <button class="btn btn-outline-secondary w-100 mt-2" onclick="clearCart()">
+                <i class="fas fa-trash me-2"></i>Clear Cart
+            </button>
+        </div>
+    </div>
+    
+    <div class="col-lg-7">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>📊 Sales History</h6>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshSales()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
+                    <a href="{{ url_for('export_sales_csv') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-file-csv me-1"></i>Export CSV
+                    </a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Amount</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesHistoryBody">
+                        {% if sales %}
+                            {% for sale in sales %}
+                            <tr>
+                                <td><strong>{{ sale.id }}</strong></td>
+                                <td>
+                                    {% if sale.items %}
+                                        {{ sale.items[0].product.name }}
+                                        {% if sale.items|length > 1 %}
+                                            <span class="text-muted small">(+{{ sale.items|length - 1 }} more)</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if sale.items %}
+                                        {{ sale.items|sum(attribute='quantity') }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </td>
+                                <td><strong>₹{{ "%.2f"|format(sale.total_amount) }}</strong></td>
+                                <td>{{ sale.customer_name or 'Walk-in' }}</td>
+                                <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') if sale.sale_date else sale.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="fas fa-shopping-cart fa-2x mb-2 d-block"></i>
+                                    No sales recorded yet. Start by completing a sale!
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if pagination.pages > 1 %}
+            <nav class="d-flex justify-content-between align-items-center mt-3" 
+                 style="border-top:1px solid rgba(163,181,151,0.3);padding-top:12px;">
+                <small class="text-muted">
+                    Page {{ pagination.page }} of {{ pagination.pages }} 
+                    ({{ pagination.total }} sales)
+                </small>
+                
+                <ul class="pagination mb-0" style="gap:4px;">
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('sales', page=pagination.prev_num) if pagination.has_prev else '#' }}"
+                           style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    
+                    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" 
+                                   href="{{ url_for('sales', page=p) }}"
+                                   style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);
+                                          {% if p == pagination.page %}background:var(--forest);color:var(--cream);{% else %}color:var(--forest);{% endif %}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link" style="border:none;background:transparent;">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('sales', page=pagination.next_num) if pagination.has_next else '#' }}"
+                           style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        
+            {% if sales %}
+            <div class="row g-3 mt-3 pt-3 border-top">
+                <div class="col-md-4">
+                    <div class="bg-light p-2 rounded text-center">
+                        <small class="text-muted d-block">Total Sales</small>
+                        <strong>{{ sales|length }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light p-2 rounded text-center">
+                        <small class="text-muted d-block">Total Revenue</small>
+                        <strong>₹{{ "%.2f"|format(sales|sum(attribute='total_amount')) }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bg-light p-2 rounded text-center">
+                        <small class="text-muted d-block">Today's Sales</small>
+                        <strong>{{ sales|selectattr('sale_date', 'eq', now().date())|list|length }}</strong>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cart = [];
+    let products = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProducts();
+        updateCartDisplay();
+    });
+
+    function loadProducts() {
+        fetch('/api/products')
+            .then(response => response.json())
+            .then(data => { products = data; })
+            .catch(error => {
+                console.error('Error loading products:', error);
+                showToast('Error loading products', 'error');
+            });
+    }
+
+    function filterSaleProducts(query) {
+        const container = document.getElementById('saleProductResults');
+        if (!query.trim()) { container.innerHTML = ''; return; }
+        
+        const results = products.filter(p => 
+            p.name.toLowerCase().includes(query.toLowerCase()) && p.quantity > 0
+        );
+        
+        if (results.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-search me-2"></i>No products found matching your search.
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = results.map(p => `
+            <div class="product-result-item" onclick="addToCart(${p.id})">
+                <div>
+                    <strong>${p.name}</strong>
+                    <span class="text-muted small ms-2">(${p.quantity} in stock)</span>
+                </div>
+                <span class="fw-bold text-primary">₹${p.selling_price.toFixed(2)}</span>
+            </div>
+        `).join('');
+    }
+
+    function addToCart(id) {
+        const product = products.find(p => p.id === id);
+        if (!product) { showToast('Product not found', 'error'); return; }
+        if (product.quantity <= 0) { showToast('Product is out of stock!', 'error'); return; }
+        
+        const existing = cart.find(c => c.id === id);
+        if (existing) {
+            if (existing.qty >= product.quantity) {
+                showToast('Not enough stock available!', 'error');
+                return;
+            }
+            existing.qty++;
+            showToast(`Added another ${product.name} to cart`, 'success');
+        } else {
+            cart.push({ 
+                id: product.id, 
+                name: product.name, 
+                selling_price: product.selling_price, 
+                qty: 1,
+                max_stock: product.quantity
+            });
+            showToast(`Added ${product.name} to cart`, 'success');
+        }
+        
+        document.getElementById('saleProductResults').innerHTML = '';
+        document.getElementById('saleSearch').value = '';
+        updateCartDisplay();
+    }
+
+    function removeFromCart(id) {
+        const index = cart.findIndex(c => c.id === id);
+        if (index !== -1) {
+            if (cart[index].qty > 1) {
+                cart[index].qty--;
+            } else {
+                cart.splice(index, 1);
+            }
+            updateCartDisplay();
+            showToast('Item removed from cart', 'info');
+        }
+    }
+
+    function clearCart() {
+        if (cart.length === 0) {
+            showToast('Cart is already empty', 'info');
+            return;
+        }
+        if (confirm('Are you sure you want to clear the cart?')) {
+            cart = [];
+            updateCartDisplay();
+            showToast('Cart cleared', 'info');
+        }
+    }
+
+    function updateCartDisplay() {
+        const total = cart.reduce((sum, c) => sum + c.selling_price * c.qty, 0);
+        const count = cart.reduce((sum, c) => sum + c.qty, 0);
+        document.getElementById('saleCartTotal').textContent = '₹' + total.toFixed(2);
+        document.getElementById('saleCartCount').textContent = count;
+        
+        const container = document.getElementById('saleProductResults');
+        if (cart.length > 0 && !document.getElementById('saleSearch').value.trim()) {
+            container.innerHTML = cart.map(c => `
+                <div class="product-result-item" style="background: var(--primary-bg);">
+                    <div>
+                        <strong>${c.name}</strong>
+                        <span class="text-muted small ms-2">x${c.qty}</span>
+                    </div>
+                    <div>
+                        <span class="fw-bold text-primary">₹${(c.selling_price * c.qty).toFixed(2)}</span>
+                        <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart(${c.id})" title="Remove item">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    function completeSale() {
+        if (cart.length === 0) {
+            showToast('Cart is empty! Add some products first.', 'warning');
+            return;
+        }
+
+        const customerName = prompt('Enter customer name (optional):', 'Walk-in');
+        
+        const total = cart.reduce((sum, c) => sum + c.selling_price * c.qty, 0);
+        
+        if (!confirm(`Complete sale for ₹${total.toFixed(2)}?`)) {
+            return;
+        }
+
+        const saleData = {
+            cart_items: cart.map(c => ({
+                id: c.id,
+                qty: c.qty
+            })),
+            customer_name: customerName || 'Walk-in'
+        };
+
+        fetch('/api/sales', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(saleData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`Sale completed successfully! Total: ₹${data.total.toFixed(2)}`, 'success');
+                cart = [];
+                updateCartDisplay();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error completing sale: ' + error, 'error');
+        });
+    }
+
+    function refreshSales() {
+        showToast('Refreshing sales data...', 'info');
+        location.reload();
+    }
+
+    function showToast(message, type = 'success') {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            container.id = 'toastContainer';
+            document.body.appendChild(container);
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-msg ${type}`;
+        const icon = type === 'success' ? 'check-circle' : 
+                     type === 'error' ? 'exclamation-circle' : 
+                     type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+        toast.innerHTML = `<i class="fas fa-${icon} me-2"></i> ${message}`;
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            completeSale();
+        }
+        if (e.key === 'Escape') {
+            document.getElementById('saleSearch').value = '';
+            document.getElementById('saleProductResults').innerHTML = '';
+        }
+    });
+</script>
+{% endblock %}

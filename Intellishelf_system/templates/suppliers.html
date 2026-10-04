@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block page_title %}Supplier Management{% endblock %}
+{% block page_subtitle %}Manage your suppliers{% endblock %}
+
+{% block content %}
+
+<div class="table-container">
+    <div class="table-header">
+        <h6>🏢 Suppliers</h6>
+        <button class="btn btn-sm btn-success" onclick="openAddSupplier()"><i class="fas fa-plus me-1"></i>Add Supplier</button>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Company</th>
+                    <th>Contact</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Products</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in suppliers %}
+                <tr>
+                    <td>{{ supplier.id }}</td>
+                    <td><strong>{{ supplier.company }}</strong></td>
+                    <td>{{ supplier.name }}</td>
+                    <td>{{ supplier.phone or '-' }}</td>
+                    <td>{{ supplier.email or '-' }}</td>
+                    <td>{{ supplier.products|length }}</td>
+                    <td>
+                        {% if supplier.is_discontinued %}
+                            <button class="btn btn-sm btn-success" onclick="restoreSupplier({{ supplier.id }})" title="Restore">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        {% else %}
+                            <button class="btn btn-sm btn-warning" onclick="discontinueSupplier({{ supplier.id }})" title="Discontinue">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                        {% endif %}                    
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">No suppliers found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Supplier Modal -->
+<div class="modal-overlay" id="supplierModal">
+    <div class="modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold">Add Supplier</h5>
+            <button class="modal-close" onclick="closeModal('supplierModal')">×</button>
+        </div>
+        <form id="supplierForm">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Supplier Name</label>
+                    <input type="text" class="form-control" id="supplierName" placeholder="Enter supplier name" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Company Name</label>
+                    <input type="text" class="form-control" id="supplierCompany" placeholder="Enter company name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input type="email" class="form-control" id="supplierEmail" placeholder="email@company.com">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Phone</label>
+                    <input type="tel" class="form-control" id="supplierPhone" placeholder="+1 234-567-8901">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Address</label>
+                    <textarea class="form-control" id="supplierAddress" rows="2" placeholder="Supplier address"></textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">Add Supplier</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="closeModal('supplierModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openAddSupplier() {
+        document.getElementById('supplierForm').reset();
+        document.getElementById('supplierModal').classList.add('active');
+    }
+
+    function discontinueSupplier(id) {
+        if (!confirm('Discontinue this supplier? You can restore it anytime.')) return;
+        fetch(`/api/suppliers/${id}/discontinue`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function restoreSupplier(id) {
+        if (!confirm('Restore this supplier?')) return;
+        fetch(`/api/suppliers/${id}/restore`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    document.getElementById('supplierForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // ✅ Client-side validation
+        const name = document.getElementById('supplierName').value.trim();
+        const company = document.getElementById('supplierCompany').value.trim();
+        const email = document.getElementById('supplierEmail').value.trim();
+        const phone = document.getElementById('supplierPhone').value.trim();
+        const address = document.getElementById('supplierAddress').value.trim();
+        
+        if (!name) {
+            showToast('Contact name is required.', 'error');
+            document.getElementById('supplierName').focus();
+            return;
+        }
+        if (name.length > 100) {
+            showToast('Contact name must be under 100 characters.', 'error');
+            return;
+        }
+        if (!company) {
+            showToast('Company name is required.', 'error');
+            document.getElementById('supplierCompany').focus();
+            return;
+        }
+        if (company.length > 100) {
+            showToast('Company name must be under 100 characters.', 'error');
+            return;
+        }
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+            showToast('Email address is not valid.', 'error');
+            document.getElementById('supplierEmail').focus();
+            return;
+        }
+        if (phone && !/^[\d\s\+\-\(\)]{5,20}$/.test(phone)) {
+            showToast('Phone number is not valid.', 'error');
+            document.getElementById('supplierPhone').focus();
+            return;
+        }
+        
+        const data = { name, company, email, phone, address };
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+
+        fetch('/api/suppliers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                closeModal('supplierModal');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(result.message || 'Failed to save supplier', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        })
+        .catch(error => {
+            showToast('Error: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+    });
+</script>
+{% endblock %}

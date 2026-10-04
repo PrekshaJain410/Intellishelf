@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block page_title %}Inventory Management{% endblock %}
+{% block page_subtitle %}Manage your products and stock levels{% endblock %}
+
+{% block content %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon primary"><i class="fas fa-boxes"></i></div>
+            <div class="card-number">{{ products|length }}</div>
+            <div class="card-label">Total Products</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="card-number">{{ products|selectattr('status', 'equalto', 'Low Stock')|list|length }}</div>
+            <div class="card-label">Low Stock</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon success"><i class="fas fa-check-circle"></i></div>
+            <div class="card-number">{{ products|selectattr('status', 'equalto', 'In Stock')|list|length }}</div>
+            <div class="card-label">In Stock</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-icon danger"><i class="fas fa-times-circle"></i></div>
+            <div class="card-number">{{ products|selectattr('status', 'equalto', 'Out of Stock')|list|length }}</div>
+            <div class="card-label">Out of Stock</div>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <!-- ✅ Filter Tabs -->
+    <div class="d-flex gap-2 mb-3" style="border-bottom:1.5px solid rgba(163,181,151,0.3);padding-bottom:0;">
+        <a href="{{ url_for('inventory', show='active', search=search) }}" 
+        class="btn btn-sm {% if show == 'active' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+        style="border-radius:8px 8px 0 0;border-bottom:none;">
+            ✅ Active ({{ active_count }})
+        </a>
+        <a href="{{ url_for('inventory', show='discontinued', search=search) }}" 
+        class="btn btn-sm {% if show == 'discontinued' %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+        style="border-radius:8px 8px 0 0;border-bottom:none;">
+            🚫 Discontinued ({{ discontinued_count }})
+        </a>
+        <a href="{{ url_for('inventory', show='all', search=search) }}" 
+        class="btn btn-sm {% if show == 'all' %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}"
+        style="border-radius:8px 8px 0 0;border-bottom:none;">
+            📋 All
+        </a>
+    </div>
+    <div class="table-header">
+        <h6>📋 All Products {% if search %}<span class="text-muted fw-normal">— search: "{{ search }}"</span>{% endif %}</h6>
+        <div class="d-flex gap-2 flex-wrap">
+            <form method="GET" action="{{ url_for('inventory') }}" class="d-flex gap-2">
+                <input type="text" name="search" class="form-control form-control-sm" 
+                    placeholder="Search products..." value="{{ search or '' }}"
+                    style="min-width:180px;">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-search"></i>
+                </button>
+                {% if search %}
+                <a href="{{ url_for('inventory') }}" class="btn btn-sm btn-outline-secondary" title="Clear">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+            </form>
+            <a href="{{ url_for('export_inventory_csv') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-file-csv me-1"></i>Export CSV
+            </a>
+            <button class="btn btn-sm btn-success" onclick="openAddProduct()">
+                <i class="fas fa-plus me-1"></i>Add Product
+            </button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Supplier</th>
+                    <th>Qty</th>
+                    <th>Min Stock</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.id }}</td>
+                    <td><strong>{{ product.name }}</strong></td>
+                    <td>{{ product.category }}</td>
+                    <td>{{ product.supplier_rel.company if product.supplier_rel else '-' }}</td>
+                    <td>{{ product.quantity }}</td>
+                    <td>{{ product.min_stock }}</td>
+                    <td>₹{{ "%.2f"|format(product.selling_price) }}</td>
+                    <td>
+                        {% if product.is_discontinued %}
+                            <span class="badge-status cancelled">Discontinued</span>
+                            <br>
+                            <small class="text-muted" style="font-size:0.7rem;">
+                                {{ product.discontinued_at.strftime('%Y-%m-%d') if product.discontinued_at else '' }}
+                            </small>
+                        {% else %}
+                            <span class="badge-status 
+                                {% if product.status == 'In Stock' %}in-stock
+                                {% elif product.status == 'Low Stock' %}low-stock
+                                {% else %}out-of-stock{% endif %}">
+                                {{ product.status }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if product.is_discontinued %}
+                            <button class="btn btn-sm btn-success" 
+                                    onclick="restoreProduct({{ product.id }})" 
+                                    title="Restore Product">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        {% else %}
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick="editProduct({{ product.id }})" 
+                                    title="Edit Product">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" 
+                                    onclick="discontinueProduct({{ product.id }})" 
+                                    title="Discontinue Product">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted">No products found</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if pagination.pages > 1 %}
+    <nav class="d-flex justify-content-between align-items-center mt-3 pt-3" 
+         style="border-top:1px solid rgba(163,181,151,0.3);">
+        <small class="text-muted">
+            Showing {{ pagination.first }}–{{ pagination.last }} of {{ pagination.total }} products
+        </small>
+        
+        <ul class="pagination mb-0" style="gap:4px;">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" 
+                   href="{{ url_for('inventory', page=pagination.prev_num, search=search) if pagination.has_prev else '#' }}"
+                   style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+            
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" 
+                           href="{{ url_for('inventory', page=p, search=search) }}"
+                           style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);
+                                  {% if p == pagination.page %}background:var(--forest);color:var(--cream);{% else %}color:var(--forest);{% endif %}">
+                            {{ p }}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link" style="border:none;background:transparent;">…</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" 
+                   href="{{ url_for('inventory', page=pagination.next_num, search=search) if pagination.has_next else '#' }}"
+                   style="border-radius:8px;border:1.5px solid rgba(163,181,151,0.5);color:var(--forest);">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal-overlay" id="productModal">
+    <div class="modal-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold" id="productModalTitle">Add Product</h5>
+            <button class="modal-close" onclick="closeModal('productModal')">×</button>
+        </div>
+        <form id="productForm">
+            <input type="hidden" id="editProductId">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Product Name</label>
+                    <input type="text" class="form-control" id="prodName" placeholder="Enter product name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Category</label>
+                    <select class="form-select" id="prodCategory">
+                        <option>Electronics</option>
+                        <option>Clothing</option>
+                        <option>Food & Beverages</option>
+                        <option>Furniture</option>
+                        <option>Books</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Purchase Price (₹)</label>
+                    <input type="number" class="form-control" id="prodPurchasePrice" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Selling Price (₹)</label>
+                    <input type="number" class="form-control" id="prodSellingPrice" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Quantity</label>
+                    <input type="number" class="form-control" id="prodStock" placeholder="0" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Min Stock Level</label>
+                    <input type="number" class="form-control" id="prodReorder" placeholder="10" value="10">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Supplier</label>
+                    <select class="form-select" id="prodSupplier">
+                        <option value="">Select a supplier</option>
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}">{{ supplier.company }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Description</label>
+                    <textarea class="form-control" id="prodDescription" rows="2" placeholder="Product description"></textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary" id="productSubmitBtn">Add Product</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="closeModal('productModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openAddProduct() {
+        document.getElementById('productModalTitle').textContent = 'Add Product';
+        document.getElementById('productSubmitBtn').textContent = 'Add Product';
+        document.getElementById('editProductId').value = '';
+        document.getElementById('productForm').reset();
+        document.getElementById('productModal').classList.add('active');
+    }
+
+    function editProduct(id) {
+        fetch(`/api/products/${id}`)
+            .then(response => response.json())
+            .then(product => {
+                document.getElementById('productModalTitle').textContent = 'Edit Product';
+                document.getElementById('productSubmitBtn').textContent = 'Update Product';
+                document.getElementById('editProductId').value = product.id;
+                document.getElementById('prodName').value = product.name;
+                document.getElementById('prodCategory').value = product.category;
+                document.getElementById('prodDescription').value = product.description || '';
+                document.getElementById('prodSupplier').value = product.supplier_id || '';
+                document.getElementById('prodPurchasePrice').value = product.purchase_price;
+                document.getElementById('prodSellingPrice').value = product.selling_price;
+                document.getElementById('prodStock').value = product.quantity;
+                document.getElementById('prodReorder').value = product.min_stock;
+                document.getElementById('productModal').classList.add('active');
+            })
+            .catch(error => showToast('Error loading product: ' + error, 'error'));
+    }
+
+    function discontinueProduct(id) {
+        if (!confirm(
+            'Discontinue this product?\n\n' +
+            '• It will be hidden from sales and purchases\n' +
+            '• Historical records are kept\n' +
+            '• You can restore it anytime'
+        )) return;
+        
+        fetch(`/api/products/${id}/discontinue`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    function restoreProduct(id) {
+        if (!confirm('Restore this product to active inventory?')) return;
+        
+        fetch(`/api/products/${id}/restore`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+
+    document.getElementById('productForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('editProductId').value;
+        
+        // ✅ Client-side validation (fast feedback)
+        const name = document.getElementById('prodName').value.trim();
+        const purchasePrice = parseFloat(document.getElementById('prodPurchasePrice').value);
+        const sellingPrice = parseFloat(document.getElementById('prodSellingPrice').value);
+        const quantity = parseInt(document.getElementById('prodStock').value);
+        const minStock = parseInt(document.getElementById('prodReorder').value) || 10;
+        
+        if (!name) {
+            showToast('Product name is required.', 'error');
+            document.getElementById('prodName').focus();
+            return;
+        }
+        if (name.length > 100) {
+            showToast('Product name must be under 100 characters.', 'error');
+            return;
+        }
+        if (isNaN(purchasePrice) || purchasePrice <= 0) {
+            showToast('Purchase price must be greater than 0.', 'error');
+            document.getElementById('prodPurchasePrice').focus();
+            return;
+        }
+        if (isNaN(sellingPrice) || sellingPrice <= 0) {
+            showToast('Selling price must be greater than 0.', 'error');
+            document.getElementById('prodSellingPrice').focus();
+            return;
+        }
+        
+        // ⚠️ Warning (but allow) if selling below cost
+        if (sellingPrice < purchasePrice) {
+            const lossPerUnit = (purchasePrice - sellingPrice).toFixed(2);
+            if (!confirm(
+                `⚠️ Warning: Selling below cost\n\n` +
+                `Purchase price: ₹${purchasePrice.toFixed(2)}\n` +
+                `Selling price: ₹${sellingPrice.toFixed(2)}\n` +
+                `Loss per unit: ₹${lossPerUnit}\n\n` +
+                `You will lose money on every sale.\n\n` +
+                `Continue anyway?`
+            )) return;
+        }
+        
+        if (isNaN(quantity) || quantity < 0) {
+            showToast('Quantity cannot be negative.', 'error');
+            document.getElementById('prodStock').focus();
+            return;
+        }
+        if (isNaN(minStock) || minStock < 0) {
+            showToast('Minimum stock cannot be negative.', 'error');
+            return;
+        }
+        
+        const data = {
+            name: name,
+            category: document.getElementById('prodCategory').value,
+            description: document.getElementById('prodDescription').value.trim(),
+            supplier_id: document.getElementById('prodSupplier').value || null,
+            purchase_price: purchasePrice,
+            selling_price: sellingPrice,
+            quantity: quantity,
+            min_stock: minStock
+        };
+
+        const url = id ? `/api/products/${id}` : '/api/products';
+        const method = id ? 'PUT' : 'POST';
+        
+        const submitBtn = document.getElementById('productSubmitBtn');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                closeModal('productModal');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(result.message || 'Failed to save product', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        })
+        .catch(error => {
+            showToast('Error: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+    });
+</script>
+{% endblock %}

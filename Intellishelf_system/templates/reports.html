@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block page_title %}Reports & Review{% endblock %}
+{% block page_subtitle %}
+    {% if total_products == 0 and total_sales == 0 %}
+        Reports will appear once you add data
+    {% else %}
+        Analyze business performance and trends
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# ============================================================ #}
+{# EMPTY STATE — Shown when user has no products AND no sales   #}
+{# ============================================================ #}
+{% if total_products == 0 and total_sales == 0 %}
+
+<div class="reports-empty-wrapper">
+    <div class="reports-empty-card">
+        
+        <div class="empty-icon">
+            <i class="fas fa-chart-bar"></i>
+        </div>
+
+        <h2 class="empty-title">No data to report yet</h2>
+        <p class="empty-subtitle">
+            Reports and analytics will appear here once you start adding
+            products and recording sales.
+        </p>
+
+        <div class="empty-steps">
+            <div class="empty-step" onclick="window.location.href='{{ url_for('suppliers') }}'">
+                <div class="empty-step-num">1</div>
+                <div class="empty-step-body">
+                    <div class="empty-step-title">Add a Supplier</div>
+                    <div class="empty-step-desc">Companies you buy stock from</div>
+                </div>
+                <i class="fas fa-chevron-right empty-step-arrow"></i>
+            </div>
+
+            <div class="empty-step" onclick="window.location.href='{{ url_for('inventory') }}'">
+                <div class="empty-step-num">2</div>
+                <div class="empty-step-body">
+                    <div class="empty-step-title">Add Products</div>
+                    <div class="empty-step-desc">Items you sell with prices and stock</div>
+                </div>
+                <i class="fas fa-chevron-right empty-step-arrow"></i>
+            </div>
+
+            <div class="empty-step" onclick="window.location.href='{{ url_for('sales') }}'">
+                <div class="empty-step-num">3</div>
+                <div class="empty-step-body">
+                    <div class="empty-step-title">Record Sales</div>
+                    <div class="empty-step-desc">Start tracking your revenue</div>
+                </div>
+                <i class="fas fa-chevron-right empty-step-arrow"></i>
+            </div>
+        </div>
+
+        <div class="empty-cta">
+            {% if total_products == 0 %}
+                <a href="{{ url_for('inventory') }}" class="btn-empty-primary">
+                    <i class="fas fa-plus me-2"></i>Add Your First Product
+                </a>
+            {% else %}
+                <a href="{{ url_for('sales') }}" class="btn-empty-primary">
+                    <i class="fas fa-cash-register me-2"></i>Record Your First Sale
+                </a>
+            {% endif %}
+            <a href="{{ url_for('dashboard') }}" class="btn-empty-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<style>
+.reports-empty-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 65vh;
+    padding: 2rem 1rem;
+}
+
+.reports-empty-card {
+    background: rgba(244, 246, 241, 0.96);
+    backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(163, 181, 151, 0.5);
+    border-radius: 24px;
+    padding: 3rem 2.75rem;
+    max-width: 580px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 24px 50px rgba(59, 73, 56, 0.12);
+    animation: fadeSlideUp 0.5s ease-out;
+}
+
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: rgba(163, 181, 151, 0.25);
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    color: var(--forest);
+}
+
+.empty-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--forest);
+    margin-bottom: 0.6rem;
+    letter-spacing: -0.02em;
+}
+
+.empty-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 420px;
+    margin: 0 auto 2rem;
+}
+
+.empty-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.empty-step {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1rem 1.15rem;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1.5px solid rgba(163, 181, 151, 0.4);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.empty-step:hover {
+    background: rgba(231, 240, 228, 0.9);
+    border-color: var(--forest);
+    transform: translateX(4px);
+    box-shadow: 0 8px 20px rgba(59, 73, 56, 0.08);
+}
+
+.empty-step-num {
+    width: 30px;
+    height: 30px;
+    background: var(--forest);
+    color: var(--cream);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.empty-step-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.empty-step-title {
+    font-weight: 700;
+    color: var(--forest);
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.empty-step-desc {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.empty-step-arrow {
+    color: var(--sage);
+    font-size: 0.8rem;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+
+.empty-step:hover .empty-step-arrow {
+    color: var(--forest);
+    transform: translateX(3px);
+}
+
+.empty-cta {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-empty-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 1.75rem;
+    background: var(--forest);
+    color: var(--cream);
+    border: 1.5px solid var(--forest);
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    box-shadow: 0 8px 20px rgba(59, 73, 56, 0.25);
+}
+
+.btn-empty-primary:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: var(--cream);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(59, 73, 56, 0.35);
+}
+
+.btn-empty-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 1.65rem;
+    background: transparent;
+    color: var(--forest);
+    border: 1.5px solid rgba(163, 181, 151, 0.7);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.btn-empty-secondary:hover {
+    background: rgba(163, 181, 151, 0.2);
+    border-color: var(--forest);
+    color: var(--forest);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 576px) {
+    .reports-empty-card {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+    }
+    .empty-title {
+        font-size: 1.35rem;
+    }
+    .empty-icon {
+        width: 68px;
+        height: 68px;
+        font-size: 28px;
+    }
+    .btn-empty-primary,
+    .btn-empty-secondary {
+        width: 100%;
+    }
+    .empty-cta {
+        flex-direction: column;
+    }
+}
+</style>
+
+{% else %}
+
+{# ============================================================ #}
+{# FULL REPORTS — Charts + Tables with real data                #}
+{# ============================================================ #}
+
+<!-- KPI Summary -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon success"><i class="fas fa-dollar-sign"></i></div>
+            <div class="card-number">₹{{ "{:,.0f}".format(revenue) }}</div>
+            <div class="card-label">Total Revenue</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon primary"><i class="fas fa-chart-line"></i></div>
+            <div class="card-number">{{ total_sales }}</div>
+            <div class="card-label">Total Sales</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon warning"><i class="fas fa-shopping-cart"></i></div>
+            <div class="card-number">{{ total_purchases }}</div>
+            <div class="card-label">Total Purchases</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="dashboard-card" style="cursor:default;">
+            <div class="card-icon info"><i class="fas fa-boxes"></i></div>
+            <div class="card-number">{{ total_products }}</div>
+            <div class="card-label">Products Tracked</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>📈 Monthly Sales Trend</h6>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>Print
+                    </button>
+                    <a href="{{ url_for('export_reports_csv') }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-file-csv me-1"></i>Export Full Report
+                    </a>
+                </div>
+            </div>
+            <div class="chart-container" style="height:320px;">
+                <canvas id="reportSalesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>🥧 Category Breakdown</h6>
+            </div>
+            <div class="chart-container" style="height:320px;">
+                <canvas id="reportCategoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>🏆 Top Selling Products</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr><th>ID</th><th>Product</th><th>Units Sold</th><th>Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_products %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ item.name }}</strong></td>
+                            <td>{{ item.units }}</td>
+                            <td>₹{{ "%.2f"|format(item.revenue) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted">No sales data yet</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="table-container">
+            <div class="table-header">
+                <h6>📊 Stock Value by Category</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr><th>Category</th><th>Products</th><th>Stock Value</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in category_stats %}
+                        <tr>
+                            <td><strong>{{ c.name }}</strong></td>
+                            <td>{{ c.count }}</td>
+                            <td>₹{{ "%.2f"|format(c.value) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted">No products yet</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if total_products > 0 or total_sales > 0 %}
+<script>
+    const salesCtx = document.getElementById('reportSalesChart');
+    if (salesCtx) {
+        new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: {{ monthly_labels|tojson }},
+                datasets: [{
+                    label: 'Revenue (₹)',
+                    data: {{ monthly_revenue|tojson }},
+                    borderColor: '#3B4938',
+                    backgroundColor: 'rgba(163,181,151,0.25)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#3B4938',
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } }
+                }
+            }
+        });
+    }
+
+    const catCtx = document.getElementById('reportCategoryChart');
+    if (catCtx) {
+        new Chart(catCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ category_labels|tojson }},
+                datasets: [{
+                    data: {{ category_values|tojson }},
+                    backgroundColor: ['#3B4938','#A3B597','#d9b278','#8cb4c8','#c88c82','#616C5E'],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 11 } } }
+                }
+            }
+        });
+    }
+</script>
+{% endif %}
+{% endblock %}

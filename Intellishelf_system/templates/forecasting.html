@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block page_title %}AI Forecasting{% endblock %}
+{% block page_subtitle %}Predict demand with artificial intelligence{% endblock %}
+
+{% block content %}
+
+<div class="table-container mb-4">
+    <div class="row g-3">
+        <div class="col-md-5">
+            <label class="form-label fw-semibold">Select Product</label>
+            <select class="form-select" id="forecastProduct">
+                <option value="">Select a product</option>
+                {% for product in products %}
+                <option value="{{ product.id }}">{{ product.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Forecast Period</label>
+            <select class="form-select" id="forecastPeriod">
+                <option value="7">Next 7 Days</option>
+                <option value="30" selected>Next 30 Days</option>
+                <option value="90">Next 3 Months</option>
+                <option value="180">Next 6 Months</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary w-100" onclick="generateForecast()" id="forecastBtn">
+                <i class="fas fa-robot me-2"></i>Generate Prediction
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div class="text-center py-5" id="forecastLoading" style="display:none;">
+    <div style="font-size:48px;margin-bottom:12px;">🤖</div>
+    <h5>Analyzing data...</h5>
+    <p class="text-muted">Our AI is processing historical sales data</p>
+    <div class="progress mx-auto" style="max-width:400px;height:6px;">
+        <div class="progress-bar" id="loadingBar" style="width:0%;background:var(--primary);"></div>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="forecastResults" style="display:none;">
+    <div class="forecast-card mb-4">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="metric">
+                    <div class="number" id="predictedDemand">0</div>
+                    <div class="label">📈 Predicted Demand (units)</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric">
+                    <div class="number" id="confidenceScore">0%</div>
+                    <div class="label">✅ Confidence Score</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric">
+                    <div class="number" id="recommendedStock">0</div>
+                    <div class="label">📊 Recommended Stock</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <div class="table-header">
+            <h6>📋 Reorder Recommendation</h6>
+            <span id="reorderStatus" class="text-muted small">Analyzing...</span>
+        </div>
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div>
+                <div class="text-muted small">Current Stock</div>
+                <div class="fs-3 fw-bold" id="currentStockDisplay">0</div>
+            </div>
+            <div>
+                <div class="text-muted small">Recommended Order</div>
+                <div class="fs-3 fw-bold text-primary-custom" id="reorderQty">0</div>
+            </div>
+            <div>
+                <button class="btn btn-success" id="createPOBtn" onclick="createPOFromForecast()">
+                    <i class="fas fa-shopping-cart me-2"></i>Create Purchase Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let lastPrediction = null;
+
+    function generateForecast() {
+        const productId = document.getElementById('forecastProduct').value;
+        const period = parseInt(document.getElementById('forecastPeriod').value);
+        
+        if (!productId) {
+            showToast('Please select a product', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('forecastBtn');
+        const results = document.getElementById('forecastResults');
+        const loading = document.getElementById('forecastLoading');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        results.style.display = 'none';
+        loading.style.display = 'block';
+
+        let progress = 0;
+        const bar = document.getElementById('loadingBar');
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 100) progress = 100;
+            bar.style.width = progress + '%';
+            if (progress === 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    fetch('/api/forecast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ product_id: productId, period: period })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showForecastResults(data);
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-robot me-2"></i>Generate Prediction';
+                            loading.style.display = 'none';
+                            results.style.display = 'block';
+                            showToast('AI prediction generated successfully!', 'success');
+                        } else {
+                            showToast(data.message, 'error');
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-robot me-2"></i>Generate Prediction';
+                            loading.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        showToast('Error: ' + error, 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-robot me-2"></i>Generate Prediction';
+                        loading.style.display = 'none';
+                    });
+                }, 500);
+            }
+        }, 150);
+    }
+
+    function showForecastResults(data) {
+        document.getElementById('predictedDemand').textContent = data.predicted_demand;
+        document.getElementById('confidenceScore').textContent = data.confidence_score + '%';
+        document.getElementById('recommendedStock').textContent = data.recommended_stock;
+        document.getElementById('currentStockDisplay').textContent = data.current_stock;
+        document.getElementById('reorderQty').textContent = data.reorder_qty;
+
+        const statusEl = document.getElementById('reorderStatus');
+        if (data.reorder_qty > 0) {
+            statusEl.innerHTML = '⚠️ <span style="color:#F59E0B;">Reorder recommended</span>';
+        } else {
+            statusEl.innerHTML = '✅ <span style="color:#22C55E;">Stock level is adequate</span>';
+        }
+
+        lastPrediction = data;
+    }
+
+    function createPOFromForecast() {
+        if (!lastPrediction || lastPrediction.reorder_qty <= 0) {
+            showToast('No reorder needed at this time.', 'info');
+            return;
+        }
+
+        const productId = document.getElementById('forecastProduct').value;
+
+        // Fetch product to get real price + supplier
+        fetch(`/api/products/${productId}`)
+            .then(response => response.json())
+            .then(product => {
+                // ✅ NEW FORMAT: send items array
+                const data = {
+                    supplier_id: product.supplier_id,
+                    items: [{
+                        product_id: parseInt(productId),
+                        quantity: lastPrediction.reorder_qty,
+                        purchase_price: product.purchase_price
+                    }]
+                };
+                
+                return fetch('/api/purchases', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showToast(`✅ Purchase order #${result.id} created for ${lastPrediction.reorder_qty} units`, 'success');
+                    const btn = document.getElementById('createPOBtn');
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-check me-2"></i>Order Placed';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-shopping-cart me-2"></i>Create Purchase Order';
+                    }, 3000);
+                } else {
+                    showToast(result.message, 'error');
+                }
+            })
+            .catch(error => showToast('Error: ' + error, 'error'));
+    }
+</script>
+{% endblock %}
