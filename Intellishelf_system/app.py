@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:YOURPASSWORD@localhost/inventory_system'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:MINAL_2045@127.0.0.1:3306/inventory_system'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
@@ -2060,4 +2060,4 @@ with app.app_context():
 if __name__ == '__main__':
     print("🚀 Starting IntelliShelf Server...")
     print("📍 Access at: http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='127.0.0.1', port=5000)
