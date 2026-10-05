@@ -254,18 +254,32 @@
         updateCartDisplay();
     }
 
-    function removeFromCart(id) {
-        const index = cart.findIndex(c => c.id === id);
-        if (index !== -1) {
-            if (cart[index].qty > 1) {
-                cart[index].qty--;
-            } else {
-                cart.splice(index, 1);
-            }
-            updateCartDisplay();
-            showToast('Item removed from cart', 'info');
-        }
+   function removeFromCart(id, event) {
+
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
     }
+
+    id = Number(id);
+
+    const index = cart.findIndex(c => Number(c.id) === id);
+
+    if (index === -1) {
+        console.log("Product not found in cart:", id);
+        return;
+    }
+
+    if (cart[index].qty > 1) {
+        cart[index].qty--;
+    } else {
+        cart.splice(index, 1);
+    }
+
+    updateCartDisplay();
+
+    showToast('Item removed from cart', 'info');
+}
 
     function clearCart() {
         if (cart.length === 0) {
@@ -279,30 +293,77 @@
         }
     }
 
-    function updateCartDisplay() {
-        const total = cart.reduce((sum, c) => sum + c.selling_price * c.qty, 0);
-        const count = cart.reduce((sum, c) => sum + c.qty, 0);
-        document.getElementById('saleCartTotal').textContent = '₹' + total.toFixed(2);
-        document.getElementById('saleCartCount').textContent = count;
-        
-        const container = document.getElementById('saleProductResults');
-        if (cart.length > 0 && !document.getElementById('saleSearch').value.trim()) {
-            container.innerHTML = cart.map(c => `
-                <div class="product-result-item" style="background: var(--primary-bg);">
-                    <div>
-                        <strong>${c.name}</strong>
-                        <span class="text-muted small ms-2">x${c.qty}</span>
-                    </div>
-                    <div>
-                        <span class="fw-bold text-primary">₹${(c.selling_price * c.qty).toFixed(2)}</span>
-                        <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart(${c.id})" title="Remove item">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
+function updateCartDisplay() {
+
+    const total = cart.reduce(
+        (sum, c) => sum + Number(c.selling_price) * Number(c.qty),
+        0
+    );
+
+    const count = cart.reduce(
+        (sum, c) => sum + Number(c.qty),
+        0
+    );
+
+    document.getElementById('saleCartTotal').textContent =
+        '₹' + total.toFixed(2);
+
+    document.getElementById('saleCartCount').textContent =
+        count;
+
+    const container = document.getElementById('saleProductResults');
+    const searchInput = document.getElementById('saleSearch');
+
+    if (!container || !searchInput) {
+        return;
     }
+
+    if (cart.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    if (searchInput.value.trim()) {
+        return;
+    }
+
+    container.innerHTML = cart.map(c => `
+
+        <div 
+            class="product-result-item"
+            style="background: var(--primary-bg);"
+        >
+
+            <div>
+                <strong>${c.name}</strong>
+
+                <span class="text-muted small ms-2">
+                    x${c.qty}
+                </span>
+            </div>
+
+            <div>
+
+                <span class="fw-bold text-primary">
+                    ₹${(Number(c.selling_price) * Number(c.qty)).toFixed(2)}
+                </span>
+
+                <button
+                    type="button"
+                    class="btn btn-sm btn-danger ms-2"
+                    title="Remove item"
+                    onclick="removeFromCart(${Number(c.id)}, event)"
+                >
+                    <i class="fas fa-times"></i>
+                </button>
+
+            </div>
+
+        </div>
+
+    `).join('');
+}
+    
 
     function completeSale() {
         if (cart.length === 0) {
